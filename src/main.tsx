@@ -11,12 +11,14 @@ import {
   GitBranch,
   History,
   Loader2,
+  Moon,
   Plus,
   RefreshCw,
   Save,
   Search,
   SlidersHorizontal,
   Sparkles,
+  Sun,
   Trash2,
   TriangleAlert,
   Wand2,
@@ -54,6 +56,7 @@ type RecentProject = {
 };
 
 type Locale = "en" | "ru";
+type Theme = "light" | "dark";
 type ImproveAction = "improve-proposal" | "concrete-design" | "split-tasks" | "add-risks" | "summarize";
 type ContextKey = "projectMd" | "readme" | "existingChanges" | "existingSpecs" | "currentChange";
 
@@ -284,6 +287,15 @@ const defaultContextOptions: ContextOptions = {
   existingSpecs: true,
   currentChange: true,
 };
+
+function getInitialTheme(): Theme {
+  const saved = localStorage.getItem("openspec-companion-theme");
+  if (saved === "light" || saved === "dark") {
+    return saved;
+  }
+
+  return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
 const recentDbName = "openspec-companion";
 const recentStoreName = "recent-projects";
 
@@ -733,6 +745,7 @@ async function loadOpenSpecProject(handle: FileSystemDirectoryHandle, locale: Lo
 
 function App() {
   const [locale, setLocaleState] = useState<Locale>(getInitialLocale);
+  const [theme, setThemeState] = useState<Theme>(getInitialTheme);
   const [project, setProject] = useState<ProjectState>({ name: "Demo Repository", changes: demoChanges });
   const [selectedId, setSelectedId] = useState(demoChanges[0].id);
   const [activeDoc, setActiveDoc] = useState<DocName>("proposal.md");
@@ -751,6 +764,11 @@ function App() {
     setNotice(translate(nextLocale, "demoMode"));
   }
 
+  function setTheme(nextTheme: Theme) {
+    setThemeState(nextTheme);
+    localStorage.setItem("openspec-companion-theme", nextTheme);
+  }
+
   useEffect(() => {
     getRecentProjects()
       .then(setRecentProjects)
@@ -760,6 +778,10 @@ function App() {
   useEffect(() => {
     setPatchPreview(undefined);
   }, [selectedId]);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+  }, [theme]);
 
   const selectedChange = project.changes.find((change) => change.id === selectedId) ?? project.changes[0];
   const displayedChange = patchPreview && patchPreview.id === selectedChange?.id ? patchPreview : selectedChange;
@@ -1043,7 +1065,7 @@ function App() {
   }
 
   return (
-    <main className="app-shell">
+    <main className="app-shell" data-theme={theme}>
       <header className="topbar">
         <div className="brand">
           <div className="brand-mark">
@@ -1061,6 +1083,14 @@ function App() {
             </button>
             <button className={locale === "ru" ? "active" : ""} onClick={() => setLocale("ru")}>
               RU
+            </button>
+          </div>
+          <div className="theme-switch" aria-label="Theme">
+            <button className={theme === "light" ? "active" : ""} title="Light theme" onClick={() => setTheme("light")}>
+              <Sun size={15} />
+            </button>
+            <button className={theme === "dark" ? "active" : ""} title="Dark theme" onClick={() => setTheme("dark")}>
+              <Moon size={15} />
             </button>
           </div>
           <button className="icon-button" title={t("refreshProject")} onClick={refreshProject} disabled={busy}>
