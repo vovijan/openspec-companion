@@ -4,7 +4,7 @@ import { createServer as createViteServer } from "vite";
 import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { generateChangeDraft, getProviderConfig, getProviderId, improveChange } from "./ai-providers.mjs";
+import { generateChangeDraft, getProviderConfig, getProviderId, improveChange, reviewChange } from "./ai-providers.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, "..");
@@ -47,6 +47,25 @@ app.post("/api/improve-change", async (req, res) => {
     console.error(error);
     res.status(error.status ?? 500).json({
       error: error.status === 503 ? error.message : "Could not improve OpenSpec change.",
+      provider: getProviderId(provider),
+    });
+  }
+});
+
+app.post("/api/review-change", async (req, res) => {
+  const { change, context, health, provider } = req.body ?? {};
+
+  if (!change?.docs) {
+    res.status(400).json({ error: "Change docs are required." });
+    return;
+  }
+
+  try {
+    res.json(await reviewChange({ change, context, health, provider }));
+  } catch (error) {
+    console.error(error);
+    res.status(error.status ?? 500).json({
+      error: error.status === 503 ? error.message : "Could not review OpenSpec change.",
       provider: getProviderId(provider),
     });
   }

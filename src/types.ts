@@ -13,6 +13,37 @@ export type SpecChange = {
   source?: "local" | AiProvider;
 };
 
+export type HealthTone = "good" | "warning" | "danger";
+
+export type HealthCheck = {
+  id: string;
+  label: string;
+  detail: string;
+  passed: boolean;
+  tone: HealthTone;
+};
+
+export type SpecHealth = {
+  score: number;
+  tone: HealthTone;
+  checks: HealthCheck[];
+  summary: string;
+};
+
+export type AiReviewIssue = {
+  title: string;
+  detail: string;
+  severity: HealthTone;
+};
+
+export type AiReviewResult = {
+  summary: string;
+  issues: AiReviewIssue[];
+  suggestions: string[];
+  source: "local" | AiProvider;
+  model?: string;
+};
+
 export type ProjectState = {
   name: string;
   handle?: FileSystemDirectoryHandle;
@@ -49,6 +80,12 @@ export type TranslationKey =
   | "aiDraft"
   | "aiProvider"
   | "aiPreviewGenerated"
+  | "aiReview"
+  | "aiReviewEmpty"
+  | "aiReviewGenerated"
+  | "aiReviewIssues"
+  | "aiReviewRun"
+  | "aiReviewSuggestions"
   | "archive"
   | "archiveAction"
   | "archived"
@@ -118,4 +155,6 @@ export type TranslationKey =
   | "readme"
   | "splitTasks"
   | "summarize"
+  | "specHealth"
+  | "specHealthChecks"
   | "validate";

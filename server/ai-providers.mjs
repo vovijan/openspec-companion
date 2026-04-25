@@ -48,6 +48,32 @@ const improvementSchema = {
   },
 };
 
+const reviewSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["summary", "issues", "suggestions"],
+  properties: {
+    summary: { type: "string" },
+    issues: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["title", "detail", "severity"],
+        properties: {
+          title: { type: "string" },
+          detail: { type: "string" },
+          severity: { type: "string", enum: ["good", "warning", "danger"] },
+        },
+      },
+    },
+    suggestions: {
+      type: "array",
+      items: { type: "string" },
+    },
+  },
+};
+
 export function getProviderId(value) {
   return typeof value === "string" && providerConfigs[value] ? value : "openai";
 }
@@ -127,6 +153,43 @@ export async function improveChange({ action, change, context, provider }) {
       "design.md": ensureHeading(String(parsed.design || change.docs["design.md"] || ""), "Design"),
       "tasks.md": ensureHeading(String(parsed.tasks || change.docs["tasks.md"] || ""), "Tasks"),
     },
+    source: providerId,
+    model,
+  };
+}
+
+export async function reviewChange({ change, context, health, provider }) {
+  const providerId = getProviderId(provider);
+  const config = providerConfigs[providerId];
+  const model = process.env[config.modelEnv] ?? config.defaultModel;
+  const parsed = await requestStructuredJson({
+    provider: providerId,
+    model,
+    schema: reviewSchema,
+    schemaName: "openspec_change_review",
+    system:
+      "You review OpenSpec changes before implementation. Return only valid JSON with keys: summary, issues, suggestions. Be concise, practical, and focused on ambiguity, scope, missing edge cases, validation gaps, and implementation readiness. Do not rewrite the documents.",
+    user: JSON.stringify({
+      change: {
+        id: change.id,
+        summary: change.summary,
+        docs: change.docs,
+      },
+      health,
+      context: {
+        projectName: context?.projectName ?? "Unknown project",
+        projectMd: truncate(context?.projectMd),
+        readme: truncate(context?.readme),
+        existingChanges: Array.isArray(context?.existingChanges) ? context.existingChanges.slice(0, 80) : [],
+        existingSpecs: Array.isArray(context?.existingSpecs) ? context.existingSpecs.slice(0, 80) : [],
+      },
+    }),
+  });
+
+  return {
+    summary: String(parsed.summary || "Review complete."),
+    issues: normalizeReviewIssues(parsed.issues),
+    suggestions: Array.isArray(parsed.suggestions) ? parsed.suggestions.map(String).slice(0, 6) : [],
     source: providerId,
     model,
   };
@@ -255,4 +318,16 @@ function ensureHeading(value, heading) {
   }
 
   return trimmed.startsWith("#") ? `${trimmed}\n` : `# ${heading}\n\n${trimmed}\n`;
+}
+
+function normalizeReviewIssues(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.slice(0, 6).map((issue) => ({
+    title: String(issue?.title || "Review note"),
+    detail: String(issue?.detail || ""),
+    severity: ["good", "warning", "danger"].includes(issue?.severity) ? issue.severity : "warning",
+  }));
 }

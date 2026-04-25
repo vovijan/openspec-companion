@@ -16,10 +16,12 @@ import {
 } from "lucide-react";
 import { ChangeSidebar } from "./components/ChangeSidebar";
 import { EditorPanel } from "./components/EditorPanel";
+import { SpecHealthPanel } from "./components/SpecHealthPanel";
 import { Topbar } from "./components/Topbar";
 import { useDiffPreviewControls } from "./hooks/useDiffPreviewControls";
 import { usePersistentPreference } from "./hooks/usePersistentPreference";
-import type { AiProvider, ContextKey, ContextOptions, DiffLine, DocName, ImproveAction, Locale, ProjectState, RecentProject, SpecChange, Theme, TranslationKey } from "./types";
+import { getSpecHealth } from "./lib/specHealth";
+import type { AiProvider, AiReviewIssue, AiReviewResult, ContextKey, ContextOptions, DiffLine, DocName, HealthTone, ImproveAction, Locale, ProjectState, RecentProject, SpecChange, SpecHealth, Theme, TranslationKey } from "./types";
 
 type AiProviderInfo = {
   id: AiProvider;
@@ -35,6 +37,12 @@ const translations: Record<Locale, Record<TranslationKey, string>> = {
     aiDraft: "AI Draft",
     aiProvider: "AI Provider",
     aiPreviewGenerated: "AI preview generated. Review it, then save the draft.",
+    aiReview: "AI Review",
+    aiReviewEmpty: "No blocking issues found.",
+    aiReviewGenerated: "AI review generated.",
+    aiReviewIssues: "Issues",
+    aiReviewRun: "Review Change",
+    aiReviewSuggestions: "Suggestions",
     archive: "Archive",
     archiveAction: "Archive Change",
     archived: "Archived {id} to {path}.",
@@ -104,6 +112,8 @@ const translations: Record<Locale, Record<TranslationKey, string>> = {
     readme: "README.md",
     splitTasks: "Split Tasks",
     summarize: "Summarize",
+    specHealth: "Spec Health",
+    specHealthChecks: "Spec health checks",
     validate: "Validate",
   },
   ru: {
@@ -112,6 +122,12 @@ const translations: Record<Locale, Record<TranslationKey, string>> = {
     aiDraft: "AI-черновик",
     aiProvider: "AI-провайдер",
     aiPreviewGenerated: "AI-черновик создан. Проверь его и сохрани.",
+    aiReview: "AI-ревью",
+    aiReviewEmpty: "Блокирующих проблем не найдено.",
+    aiReviewGenerated: "AI-ревью создано.",
+    aiReviewIssues: "Проблемы",
+    aiReviewRun: "Проверить change",
+    aiReviewSuggestions: "Рекомендации",
     archive: "Архив",
     archiveAction: "Архивировать",
     archived: "Изменение {id} перенесено в {path}.",
@@ -181,6 +197,8 @@ const translations: Record<Locale, Record<TranslationKey, string>> = {
     readme: "README.md",
     splitTasks: "Разбить задачи",
     summarize: "Сводка",
+    specHealth: "Готовность спеки",
+    specHealthChecks: "Проверки готовности спеки",
     validate: "Проверка",
   },
 };
@@ -481,6 +499,74 @@ async function improveChangeWithAi(
   }
 }
 
+async function reviewChangeWithAi(
+  change: SpecChange,
+  project: ProjectState,
+  options: ContextOptions,
+  provider: AiProvider,
+  health: SpecHealth,
+): Promise<AiReviewResult> {
+  const context = await buildAiContext(project, change, options);
+
+  try {
+    const response = await fetch("/api/review-change", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ change, context, health, provider }),
+    });
+
+    if (!response.ok) {
+      throw new Error(await readApiError(response));
+    }
+
+    const data = await response.json();
+    return {
+      summary: String(data.summary || "Review complete."),
+      issues: normalizeReviewIssues(data.issues),
+      suggestions: Array.isArray(data.suggestions) ? data.suggestions.map(String).slice(0, 6) : [],
+      source: data.source === "openrouter" || data.source === "anthropic" || data.source === "openai" ? data.source : provider,
+      model: data.model,
+    };
+  } catch (error) {
+    console.warn(error);
+    return buildLocalReview(health);
+  }
+}
+
+function buildLocalReview(health: SpecHealth): AiReviewResult {
+  const missing = health.checks.filter((check) => !check.passed).slice(0, 4);
+
+  return {
+    summary: health.summary,
+    issues: missing.map((check) => ({
+      title: check.label,
+      detail: check.detail,
+      severity: check.tone,
+    })),
+    suggestions: missing.map((check) => check.detail),
+    source: "local",
+  };
+}
+
+function normalizeReviewIssues(value: unknown): AiReviewIssue[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.slice(0, 6).map((item) => {
+    const issue = item as Partial<{ title: string; detail: string; severity: string }>;
+    return {
+      title: String(issue.title || "Review note"),
+      detail: String(issue.detail || ""),
+      severity: isHealthTone(issue.severity) ? issue.severity : "warning",
+    };
+  });
+}
+
+function isHealthTone(value: unknown): value is HealthTone {
+  return value === "good" || value === "warning" || value === "danger";
+}
+
 function buildLocalImprovement(action: ImproveAction, change: SpecChange): Record<DocName, string> {
   const docs = { ...change.docs };
 
@@ -750,6 +836,7 @@ export default function App() {
   const [query, setQuery] = useState("");
   const [recentProjects, setRecentProjects] = useState<RecentProject[]>([]);
   const [aiProviderInfo, setAiProviderInfo] = useState<AiProviderInfo[]>([]);
+  const [aiReview, setAiReview] = useState<AiReviewResult | undefined>();
   const [contextOptions, setContextOptions] = useState<ContextOptions>(defaultContextOptions);
   const [patchPreview, setPatchPreview] = useState<SpecChange | undefined>();
   const { expandedDiffFiles, resetDiffPreviewControls, selectedPatchFiles, toggleDiffFile, togglePatchFile } = useDiffPreviewControls();
@@ -779,6 +866,7 @@ export default function App() {
 
   useEffect(() => {
     setPatchPreview(undefined);
+    setAiReview(undefined);
   }, [selectedId]);
 
   useEffect(() => {
@@ -788,6 +876,7 @@ export default function App() {
   const selectedChange = project.changes.find((change) => change.id === selectedId) ?? project.changes[0];
   const displayedChange = patchPreview && patchPreview.id === selectedChange?.id ? patchPreview : selectedChange;
   const warnings = displayedChange ? validateChange(displayedChange, locale) : [];
+  const specHealth = useMemo(() => getSpecHealth(displayedChange, locale), [displayedChange, locale]);
   const diffSummary = getDiffSummary(patchPreview ?? displayedChange, locale);
   const diffChange = patchPreview ?? (displayedChange?.isPreview ? displayedChange : undefined);
   const selectedAiProvider = aiProviders.find((provider) => provider.id === aiProvider) ?? aiProviders[0];
@@ -938,6 +1027,24 @@ export default function App() {
     setBusy(false);
   }
 
+  async function reviewSelectedChange() {
+    if (!displayedChange || !specHealth) {
+      return;
+    }
+
+    setBusy(true);
+    const review = await reviewChangeWithAi(displayedChange, project, contextOptions, aiProvider, specHealth);
+    setAiReview(review);
+    setNotice(
+      review.source !== "local"
+        ? review.model
+          ? `${t("aiReviewGenerated")} (${review.model})`
+          : t("aiReviewGenerated")
+        : t("aiApiFallback"),
+    );
+    setBusy(false);
+  }
+
   function applyPatchPreview() {
     if (!patchPreview) {
       return;
@@ -1061,6 +1168,7 @@ export default function App() {
           : change,
       ),
     }));
+    setAiReview(undefined);
   }
 
   async function saveCurrentDoc() {
@@ -1209,6 +1317,14 @@ export default function App() {
               ))}
             </div>
           </section>
+
+          <SpecHealthPanel
+            busy={busy}
+            health={specHealth}
+            review={aiReview}
+            onRunReview={reviewSelectedChange}
+            t={t}
+          />
 
           <section className="inspector-block improve-block">
             <div className="block-title">

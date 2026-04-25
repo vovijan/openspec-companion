@@ -13,6 +13,8 @@ OpenSpec Companion is a small developer tool for working with existing `openspec
 - Choose OpenAI, OpenRouter, or Anthropic for AI actions.
 - Choose what project context is sent to AI.
 - Improve the current change with focused AI actions.
+- Review change readiness with Spec Health.
+- Run an AI review before implementation.
 - Preview generated draft files before writing them.
 - Apply or discard AI improvement patches before saving.
 - Review full markdown diffs for draft and AI patch previews.
@@ -101,9 +103,11 @@ npm run preview
 6. Review the diff preview, then click `Save Draft`.
 7. Choose the AI provider in the `AI Draft` panel.
 8. Use `AI Context` to choose what project context is sent to the model.
-9. Use `AI Improve` actions to improve the current change, then apply or discard the patch.
-10. Use `Save` to write the current document back to disk.
-11. Use `Archive Change` to move a completed change into `openspec/changes/archive/<date>-<change-id>`.
+9. Check `Spec Health` to see readiness, missing sections, and task quality.
+10. Use `Review Change` to get an AI implementation-readiness review.
+11. Use `AI Improve` actions to improve the current change, then apply or discard the patch.
+12. Use `Save` to write the current document back to disk.
+13. Use `Archive Change` to move a completed change into `openspec/changes/archive/<date>-<change-id>`.
 
 ## Notes
 
