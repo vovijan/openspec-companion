@@ -61,6 +61,14 @@ type ImproveAction = "improve-proposal" | "concrete-design" | "split-tasks" | "a
 type ContextKey = "projectMd" | "readme" | "existingChanges" | "existingSpecs" | "currentChange";
 
 type ContextOptions = Record<ContextKey, boolean>;
+type DiffLineKind = "same" | "added" | "removed";
+
+type DiffLine = {
+  kind: DiffLineKind;
+  oldLine?: number;
+  newLine?: number;
+  text: string;
+};
 
 type TranslationKey =
   | "activeChange"
@@ -74,6 +82,7 @@ type TranslationKey =
   | "archiveReserved"
   | "archiveUnavailable"
   | "applyPatch"
+  | "applySelectedFiles"
   | "contextCurrentChange"
   | "contextExistingChanges"
   | "contextExistingSpecs"
@@ -88,6 +97,8 @@ type TranslationKey =
   | "designEmpty"
   | "diffPreview"
   | "diffLines"
+  | "hideFile"
+  | "showFile"
   | "aiImprove"
   | "addRisks"
   | "concreteDesign"
@@ -116,6 +127,7 @@ type TranslationKey =
   | "searchChanges"
   | "selectProject"
   | "updatedFile"
+  | "selectedFiles"
   | "tasksMissing"
   | "proposalMissingWhy"
   | "openRecent"
@@ -144,6 +156,7 @@ const translations: Record<Locale, Record<TranslationKey, string>> = {
     archiveReserved: "Move the selected change into openspec/changes/archive and remove it from the active list.",
     archiveUnavailable: "Select a real project before archiving changes.",
     applyPatch: "Apply Patch",
+    applySelectedFiles: "Apply Selected Files",
     contextCurrentChange: "Current change",
     contextExistingChanges: "Existing changes",
     contextExistingSpecs: "Existing specs",
@@ -158,6 +171,8 @@ const translations: Record<Locale, Record<TranslationKey, string>> = {
     designEmpty: "design.md is empty.",
     diffPreview: "Diff Preview",
     diffLines: "lines",
+    hideFile: "Hide file",
+    showFile: "Show file",
     aiImprove: "AI Improve",
     addRisks: "Add Risks",
     concreteDesign: "Make Design Concrete",
@@ -185,6 +200,7 @@ const translations: Record<Locale, Record<TranslationKey, string>> = {
     savedDraft: "Saved openspec/changes/{id}.",
     searchChanges: "Search changes",
     selectProject: "Select Project",
+    selectedFiles: "Selected files",
     updatedFile: "Update {doc}",
     tasksMissing: "tasks.md should contain checkbox tasks.",
     proposalMissingWhy: "proposal.md should explain why the change exists.",
@@ -213,6 +229,7 @@ const translations: Record<Locale, Record<TranslationKey, string>> = {
     archiveReserved: "Перемещает выбранное изменение в openspec/changes/archive и убирает его из активного списка.",
     archiveUnavailable: "Выбери реальный проект, чтобы архивировать изменения.",
     applyPatch: "Применить патч",
+    applySelectedFiles: "Применить выбранные файлы",
     contextCurrentChange: "Текущее изменение",
     contextExistingChanges: "Существующие changes",
     contextExistingSpecs: "Существующие specs",
@@ -227,6 +244,8 @@ const translations: Record<Locale, Record<TranslationKey, string>> = {
     designEmpty: "design.md пустой.",
     diffPreview: "Предпросмотр изменений",
     diffLines: "строк",
+    hideFile: "Скрыть файл",
+    showFile: "Показать файл",
     aiImprove: "AI-улучшение",
     addRisks: "Добавить риски",
     concreteDesign: "Уточнить дизайн",
@@ -254,6 +273,7 @@ const translations: Record<Locale, Record<TranslationKey, string>> = {
     savedDraft: "Сохранено: openspec/changes/{id}.",
     searchChanges: "Поиск изменений",
     selectProject: "Выбрать проект",
+    selectedFiles: "Выбранные файлы",
     updatedFile: "Обновить {doc}",
     tasksMissing: "tasks.md должен содержать задачи с чекбоксами.",
     proposalMissingWhy: "proposal.md должен объяснять, зачем нужно изменение.",
@@ -624,6 +644,74 @@ function getDiffSummary(change: SpecChange | undefined, locale: Locale) {
   });
 }
 
+function buildLineDiff(previousValue = "", nextValue = ""): DiffLine[] {
+  const previousLines = previousValue.split("\n");
+  const nextLines = nextValue.split("\n");
+  const rows: DiffLine[] = [];
+  let oldIndex = 0;
+  let newIndex = 0;
+
+  while (oldIndex < previousLines.length || newIndex < nextLines.length) {
+    const oldText = previousLines[oldIndex];
+    const newText = nextLines[newIndex];
+
+    if (oldIndex < previousLines.length && newIndex < nextLines.length && oldText === newText) {
+      rows.push({
+        kind: "same",
+        oldLine: oldIndex + 1,
+        newLine: newIndex + 1,
+        text: oldText,
+      });
+      oldIndex += 1;
+      newIndex += 1;
+      continue;
+    }
+
+    const nextOldMatch = oldIndex + 1 < previousLines.length && previousLines[oldIndex + 1] === newText;
+    const nextNewMatch = newIndex + 1 < nextLines.length && oldText === nextLines[newIndex + 1];
+
+    if (nextOldMatch) {
+      rows.push({
+        kind: "removed",
+        oldLine: oldIndex + 1,
+        text: oldText ?? "",
+      });
+      oldIndex += 1;
+      continue;
+    }
+
+    if (nextNewMatch) {
+      rows.push({
+        kind: "added",
+        newLine: newIndex + 1,
+        text: newText ?? "",
+      });
+      newIndex += 1;
+      continue;
+    }
+
+    if (oldIndex < previousLines.length) {
+      rows.push({
+        kind: "removed",
+        oldLine: oldIndex + 1,
+        text: oldText ?? "",
+      });
+      oldIndex += 1;
+    }
+
+    if (newIndex < nextLines.length) {
+      rows.push({
+        kind: "added",
+        newLine: newIndex + 1,
+        text: newText ?? "",
+      });
+      newIndex += 1;
+    }
+  }
+
+  return rows;
+}
+
 function openRecentDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(recentDbName, 1);
@@ -756,6 +844,16 @@ function App() {
   const [recentProjects, setRecentProjects] = useState<RecentProject[]>([]);
   const [contextOptions, setContextOptions] = useState<ContextOptions>(defaultContextOptions);
   const [patchPreview, setPatchPreview] = useState<SpecChange | undefined>();
+  const [selectedPatchFiles, setSelectedPatchFiles] = useState<Record<DocName, boolean>>({
+    "proposal.md": true,
+    "design.md": true,
+    "tasks.md": true,
+  });
+  const [expandedDiffFiles, setExpandedDiffFiles] = useState<Record<DocName, boolean>>({
+    "proposal.md": true,
+    "design.md": false,
+    "tasks.md": false,
+  });
   const t = (key: TranslationKey, values?: Record<string, string | number>) => translate(locale, key, values);
 
   function setLocale(nextLocale: Locale) {
@@ -787,6 +885,7 @@ function App() {
   const displayedChange = patchPreview && patchPreview.id === selectedChange?.id ? patchPreview : selectedChange;
   const warnings = displayedChange ? validateChange(displayedChange, locale) : [];
   const diffSummary = getDiffSummary(patchPreview ?? displayedChange, locale);
+  const diffChange = patchPreview ?? (displayedChange?.isPreview ? displayedChange : undefined);
 
   const filteredChanges = useMemo(() => {
     return project.changes.filter((change) => {
@@ -921,6 +1020,16 @@ function App() {
     };
 
     setPatchPreview(preview);
+    setSelectedPatchFiles({
+      "proposal.md": true,
+      "design.md": true,
+      "tasks.md": true,
+    });
+    setExpandedDiffFiles({
+      "proposal.md": true,
+      "design.md": false,
+      "tasks.md": false,
+    });
     setActiveDoc("proposal.md");
     setNotice(
       patch.source === "openai"
@@ -937,6 +1046,14 @@ function App() {
       return;
     }
 
+    const nextDocs = docNames.reduce<Record<DocName, string>>((docs, name) => {
+      docs[name] = selectedPatchFiles[name]
+        ? patchPreview.docs[name]
+        : selectedChange?.docs[name] ?? patchPreview.docs[name];
+      return docs;
+    }, {} as Record<DocName, string>);
+    const nextPatch = { ...patchPreview, docs: nextDocs };
+
     setProject((current) => ({
       ...current,
       changes: current.changes.map((change) =>
@@ -944,8 +1061,8 @@ function App() {
           ? {
               ...change,
               summary: patchPreview.summary,
-              docs: patchPreview.docs,
-              status: validateChange(patchPreview, locale).length ? "blocked" : "ready",
+              docs: nextDocs,
+              status: validateChange(nextPatch, locale).length ? "blocked" : "ready",
             }
           : change,
       ),
@@ -957,6 +1074,14 @@ function App() {
   function discardPatchPreview() {
     setPatchPreview(undefined);
     setNotice(t("patchDiscarded"));
+  }
+
+  function togglePatchFile(name: DocName) {
+    setSelectedPatchFiles((current) => ({ ...current, [name]: !current[name] }));
+  }
+
+  function toggleDiffFile(name: DocName) {
+    setExpandedDiffFiles((current) => ({ ...current, [name]: !current[name] }));
   }
 
   function toggleContextOption(key: ContextKey) {
@@ -1272,25 +1397,59 @@ function App() {
             </div>
           </section>
 
-          {patchPreview || selectedChange?.isPreview ? (
+          {diffChange ? (
             <section className="inspector-block diff-block">
               <div className="block-title">
                 <FileText size={18} />
                 <span>{patchPreview ? t("patchPreview") : t("diffPreview")}</span>
               </div>
               <div className="diff-list">
-                {diffSummary.map((item) => (
-                  <div key={item.name} className="diff-item">
-                    <span>{item.action}</span>
-                    <strong>{item.stats}</strong>
-                  </div>
-                ))}
+                {diffSummary.map((item) => {
+                  const docName = item.name as DocName;
+                  const previous = diffChange.previousDocs?.[docName] ?? "";
+                  const next = diffChange.docs[docName];
+                  const lines = buildLineDiff(previous, next);
+
+                  return (
+                    <div key={item.name} className="diff-file">
+                      <div className="diff-file-header">
+                        {patchPreview ? (
+                          <label className="diff-file-select">
+                            <input
+                              type="checkbox"
+                              checked={selectedPatchFiles[docName]}
+                              onChange={() => togglePatchFile(docName)}
+                            />
+                            <span>{item.action}</span>
+                          </label>
+                        ) : (
+                          <span>{item.action}</span>
+                        )}
+                        <button className="diff-toggle" onClick={() => toggleDiffFile(docName)}>
+                          <strong>{item.stats}</strong>
+                          {expandedDiffFiles[docName] ? t("hideFile") : t("showFile")}
+                        </button>
+                      </div>
+                      {expandedDiffFiles[docName] ? (
+                        <div className="diff-table" aria-label={`${item.name} diff`}>
+                          {lines.map((line, index) => (
+                            <div key={`${line.kind}-${index}-${line.oldLine ?? "x"}-${line.newLine ?? "x"}`} className={`diff-row ${line.kind}`}>
+                              <span className="diff-gutter">{line.oldLine ?? ""}</span>
+                              <span className="diff-gutter">{line.newLine ?? ""}</span>
+                              <pre>{line.text || " "}</pre>
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })}
               </div>
               {patchPreview ? (
                 <div className="patch-actions">
                   <button className="primary-button" onClick={applyPatchPreview} disabled={busy}>
                     <CheckCircle2 size={17} />
-                    {t("applyPatch")}
+                    {t("applySelectedFiles")}
                   </button>
                   <button className="secondary-button stretch" onClick={discardPatchPreview} disabled={busy}>
                     <X size={17} />

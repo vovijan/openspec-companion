@@ -14,7 +14,8 @@ OpenSpec Companion is a small developer tool for working with existing `openspec
 - Improve the current change with focused AI actions.
 - Preview generated draft files before writing them.
 - Apply or discard AI improvement patches before saving.
-- Show a small diff summary for preview drafts.
+- Review full markdown diffs for draft and AI patch previews.
+- Apply AI patches per file.
 - Save the current document back to the selected project.
 - Archive active changes into `openspec/changes/archive/<date>-<change-id>`.
 - Validate basic OpenSpec draft structure.
@@ -101,7 +102,6 @@ npm run preview
 
 ## Next slices
 
-- Add a full side-by-side markdown diff.
 - Add stronger OpenSpec validation checks.
 - Add persisted context presets per project.
 - Wrap the app in Tauri after Rust/Cargo is installed.
