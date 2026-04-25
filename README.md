@@ -2,7 +2,7 @@
 
 A local-first MVP for browsing and drafting OpenSpec changes in an existing project.
 
-OpenSpec Companion is a small developer tool for working with existing `openspec/` folders. It runs locally, reads and writes project files through the browser File System Access API, and keeps the OpenAI API key on the local Node server.
+OpenSpec Companion is a small developer tool for working with existing `openspec/` folders. It runs locally, reads and writes project files through the browser File System Access API, and keeps AI provider API keys on the local Node server.
 
 ## What works now
 
@@ -10,6 +10,7 @@ OpenSpec Companion is a small developer tool for working with existing `openspec
 - Read `openspec/changes/*/{proposal.md,design.md,tasks.md}`.
 - Browse changes and edit the active document.
 - Generate an AI draft from a short idea.
+- Choose OpenAI, OpenRouter, or Anthropic for AI actions.
 - Choose what project context is sent to AI.
 - Improve the current change with focused AI actions.
 - Preview generated draft files before writing them.
@@ -21,16 +22,16 @@ OpenSpec Companion is a small developer tool for working with existing `openspec
 - Validate basic OpenSpec draft structure.
 - Store recent projects in the browser for quick reopening.
 
-The app uses the browser File System Access API for local project reads/writes. The OpenAI API key stays server-side.
+The app uses the browser File System Access API for local project reads/writes. AI API keys stay server-side.
 
 ## Requirements
 
 - Node.js 22 or newer.
 - npm 10 or newer.
 - Chrome or Edge for real local folder access.
-- An OpenAI API key for AI draft and improve actions.
+- An OpenAI, OpenRouter, or Anthropic API key for AI draft and improve actions.
 
-The app can run without `OPENAI_API_KEY`, but AI actions will fall back to local template patches.
+The app can run without provider API keys, but AI actions will fall back to local template patches.
 
 ## Installation
 
@@ -49,10 +50,20 @@ Copy `.env.example` to `.env` and set:
 ```bash
 OPENAI_API_KEY=sk-...
 OPENAI_MODEL=gpt-5.4-mini
+OPENROUTER_API_KEY=sk-or-...
+OPENROUTER_MODEL=anthropic/claude-sonnet-4
+ANTHROPIC_API_KEY=sk-ant-...
+ANTHROPIC_MODEL=claude-sonnet-4-20250514
 PORT=5173
 ```
 
-`OPENAI_MODEL` is optional. If it is omitted, the server uses `gpt-5.4-mini`.
+All model variables are optional. Defaults are:
+
+- `OPENAI_MODEL=gpt-5.4-mini`
+- `OPENROUTER_MODEL=anthropic/claude-sonnet-4`
+- `ANTHROPIC_MODEL=claude-sonnet-4-20250514`
+
+Only configure the providers you want to use. The selected provider is chosen in the app before running AI draft or improve actions.
 
 ## Development
 
@@ -88,10 +99,11 @@ npm run preview
 4. Edit `proposal.md`, `design.md`, or `tasks.md` in the center editor.
 5. Use `Generate Draft` to create a new OpenSpec change from a short idea.
 6. Review the diff preview, then click `Save Draft`.
-7. Use `AI Context` to choose what project context is sent to the model.
-8. Use `AI Improve` actions to improve the current change, then apply or discard the patch.
-9. Use `Save` to write the current document back to disk.
-10. Use `Archive Change` to move a completed change into `openspec/changes/archive/<date>-<change-id>`.
+7. Choose the AI provider in the `AI Draft` panel.
+8. Use `AI Context` to choose what project context is sent to the model.
+9. Use `AI Improve` actions to improve the current change, then apply or discard the patch.
+10. Use `Save` to write the current document back to disk.
+11. Use `Archive Change` to move a completed change into `openspec/changes/archive/<date>-<change-id>`.
 
 ## Notes
 

@@ -19,13 +19,21 @@ import { EditorPanel } from "./components/EditorPanel";
 import { Topbar } from "./components/Topbar";
 import { useDiffPreviewControls } from "./hooks/useDiffPreviewControls";
 import { usePersistentPreference } from "./hooks/usePersistentPreference";
-import type { ContextKey, ContextOptions, DiffLine, DocName, ImproveAction, Locale, ProjectState, RecentProject, SpecChange, Theme, TranslationKey } from "./types";
+import type { AiProvider, ContextKey, ContextOptions, DiffLine, DocName, ImproveAction, Locale, ProjectState, RecentProject, SpecChange, Theme, TranslationKey } from "./types";
+
+type AiProviderInfo = {
+  id: AiProvider;
+  label: string;
+  configured: boolean;
+  model: string;
+};
 
 const translations: Record<Locale, Record<TranslationKey, string>> = {
   en: {
     activeChange: "Active Change",
-    aiApiFallback: "OPENAI_API_KEY is missing or the API call failed. Generated a local template preview.",
+    aiApiFallback: "The selected AI provider is not configured or the API call failed. Generated a local template preview.",
     aiDraft: "AI Draft",
+    aiProvider: "AI Provider",
     aiPreviewGenerated: "AI preview generated. Review it, then save the draft.",
     archive: "Archive",
     archiveAction: "Archive Change",
@@ -61,6 +69,7 @@ const translations: Record<Locale, Record<TranslationKey, string>> = {
     generateDraft: "Generate Draft",
     generateOrSelect: "Generate a draft or select a project that already contains OpenSpec changes.",
     ideaRequired: "Add a short idea before generating a draft.",
+    modelLabel: "Model",
     noChangesYet: "No changes yet",
     noStoredHandle: "This recent project has no stored folder handle. Select the project folder again.",
     projectLoaded: "Project loaded from local filesystem.",
@@ -88,6 +97,8 @@ const translations: Record<Locale, Record<TranslationKey, string>> = {
     patchDiscarded: "AI patch discarded.",
     patchPreview: "Patch Preview",
     previewPrefix: "Preview - ",
+    providerConfigured: "API key configured",
+    providerMissingKey: "API key missing",
     projectMd: "project.md",
     recentProjectsLoadFailed: "Recent projects could not be loaded in this browser.",
     readme: "README.md",
@@ -97,8 +108,9 @@ const translations: Record<Locale, Record<TranslationKey, string>> = {
   },
   ru: {
     activeChange: "Активное изменение",
-    aiApiFallback: "OPENAI_API_KEY не настроен или API-запрос не прошел. Создан локальный шаблон для предпросмотра.",
+    aiApiFallback: "Выбранный AI-провайдер не настроен или API-запрос не прошел. Создан локальный шаблон для предпросмотра.",
     aiDraft: "AI-черновик",
+    aiProvider: "AI-провайдер",
     aiPreviewGenerated: "AI-черновик создан. Проверь его и сохрани.",
     archive: "Архив",
     archiveAction: "Архивировать",
@@ -134,6 +146,7 @@ const translations: Record<Locale, Record<TranslationKey, string>> = {
     generateDraft: "Создать черновик",
     generateOrSelect: "Создай черновик или выбери проект, где уже есть OpenSpec changes.",
     ideaRequired: "Добавь короткое описание идеи перед генерацией.",
+    modelLabel: "Модель",
     noChangesYet: "Изменений пока нет",
     noStoredHandle: "У этого проекта нет сохраненного доступа к папке. Выбери папку проекта заново.",
     projectLoaded: "Проект загружен из локальной файловой системы.",
@@ -161,6 +174,8 @@ const translations: Record<Locale, Record<TranslationKey, string>> = {
     patchDiscarded: "AI-патч отменен.",
     patchPreview: "Предпросмотр патча",
     previewPrefix: "Предпросмотр - ",
+    providerConfigured: "API-ключ настроен",
+    providerMissingKey: "API-ключ не настроен",
     projectMd: "project.md",
     recentProjectsLoadFailed: "Не удалось загрузить недавние проекты в этом браузере.",
     readme: "README.md",
@@ -171,6 +186,11 @@ const translations: Record<Locale, Record<TranslationKey, string>> = {
 };
 
 const docNames: DocName[] = ["proposal.md", "design.md", "tasks.md"];
+const aiProviders: Array<{ id: AiProvider; label: string; defaultModel: string }> = [
+  { id: "openai", label: "OpenAI", defaultModel: "gpt-5.4-mini" },
+  { id: "openrouter", label: "OpenRouter", defaultModel: "anthropic/claude-sonnet-4" },
+  { id: "anthropic", label: "Anthropic", defaultModel: "claude-sonnet-4-20250514" },
+];
 const improveActions: Array<{ id: ImproveAction; label: TranslationKey }> = [
   { id: "improve-proposal", label: "aiImprove" },
   { id: "concrete-design", label: "concreteDesign" },
@@ -194,6 +214,12 @@ function getInitialTheme(): Theme {
 
   return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
+
+function getInitialAiProvider(): AiProvider {
+  const saved = localStorage.getItem("openspec-companion-ai-provider");
+  return aiProviders.some((provider) => provider.id === saved) ? saved as AiProvider : "openai";
+}
+
 const recentDbName = "openspec-companion";
 const recentStoreName = "recent-projects";
 
@@ -357,7 +383,8 @@ async function archiveChangeInProject(project: ProjectState, change: SpecChange)
 async function generateAiDraft(
   idea: string,
   project: ProjectState,
-): Promise<{ id: string; summary: string; docs: Record<DocName, string>; source: "local" | "openai"; model?: string }> {
+  provider: AiProvider,
+): Promise<{ id: string; summary: string; docs: Record<DocName, string>; source: "local" | AiProvider; model?: string }> {
   const context = {
     projectName: project.name,
     projectMd: project.handle ? await readOptionalFile(project.handle, ["openspec", "project.md"]) : "",
@@ -369,7 +396,7 @@ async function generateAiDraft(
     const response = await fetch("/api/generate-change", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ idea, context }),
+      body: JSON.stringify({ idea, context, provider }),
     });
 
     if (!response.ok) {
@@ -381,7 +408,7 @@ async function generateAiDraft(
       id: normalizeChangeId(data.id || idea),
       summary: String(data.summary || idea),
       docs: normalizeDocs(data.docs, idea),
-      source: "openai",
+      source: data.source === "openrouter" || data.source === "anthropic" || data.source === "openai" ? data.source : provider,
       model: data.model,
     };
   } catch (error) {
@@ -422,14 +449,15 @@ async function improveChangeWithAi(
   change: SpecChange,
   project: ProjectState,
   options: ContextOptions,
-): Promise<{ summary: string; docs: Record<DocName, string>; source: "local" | "openai"; model?: string }> {
+  provider: AiProvider,
+): Promise<{ summary: string; docs: Record<DocName, string>; source: "local" | AiProvider; model?: string }> {
   const context = await buildAiContext(project, change, options);
 
   try {
     const response = await fetch("/api/improve-change", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action, change, context }),
+      body: JSON.stringify({ action, change, context, provider }),
     });
 
     if (!response.ok) {
@@ -440,7 +468,7 @@ async function improveChangeWithAi(
     return {
       summary: String(data.summary || change.summary),
       docs: normalizeDocs(data.docs, change.summary),
-      source: "openai",
+      source: data.source === "openrouter" || data.source === "anthropic" || data.source === "openai" ? data.source : provider,
       model: data.model,
     };
   } catch (error) {
@@ -712,6 +740,7 @@ async function loadOpenSpecProject(handle: FileSystemDirectoryHandle, locale: Lo
 export default function App() {
   const [locale, setLocaleState] = usePersistentPreference<Locale>("openspec-companion-locale", getInitialLocale);
   const [theme, setTheme] = usePersistentPreference<Theme>("openspec-companion-theme", getInitialTheme);
+  const [aiProvider, setAiProvider] = usePersistentPreference<AiProvider>("openspec-companion-ai-provider", getInitialAiProvider);
   const [project, setProject] = useState<ProjectState>({ name: "Demo Repository", changes: demoChanges });
   const [selectedId, setSelectedId] = useState(demoChanges[0].id);
   const [activeDoc, setActiveDoc] = useState<DocName>("proposal.md");
@@ -720,6 +749,7 @@ export default function App() {
   const [notice, setNotice] = useState(() => translate(getInitialLocale(), "demoMode"));
   const [query, setQuery] = useState("");
   const [recentProjects, setRecentProjects] = useState<RecentProject[]>([]);
+  const [aiProviderInfo, setAiProviderInfo] = useState<AiProviderInfo[]>([]);
   const [contextOptions, setContextOptions] = useState<ContextOptions>(defaultContextOptions);
   const [patchPreview, setPatchPreview] = useState<SpecChange | undefined>();
   const { expandedDiffFiles, resetDiffPreviewControls, selectedPatchFiles, toggleDiffFile, togglePatchFile } = useDiffPreviewControls();
@@ -737,6 +767,17 @@ export default function App() {
   }, [locale]);
 
   useEffect(() => {
+    fetch("/api/ai-providers")
+      .then((response) => response.ok ? response.json() : Promise.reject())
+      .then((data) => {
+        if (Array.isArray(data.providers)) {
+          setAiProviderInfo(data.providers);
+        }
+      })
+      .catch(() => setAiProviderInfo([]));
+  }, []);
+
+  useEffect(() => {
     setPatchPreview(undefined);
   }, [selectedId]);
 
@@ -749,6 +790,8 @@ export default function App() {
   const warnings = displayedChange ? validateChange(displayedChange, locale) : [];
   const diffSummary = getDiffSummary(patchPreview ?? displayedChange, locale);
   const diffChange = patchPreview ?? (displayedChange?.isPreview ? displayedChange : undefined);
+  const selectedAiProvider = aiProviders.find((provider) => provider.id === aiProvider) ?? aiProviders[0];
+  const selectedAiProviderInfo = aiProviderInfo.find((provider) => provider.id === aiProvider);
 
   const filteredChanges = useMemo(() => {
     return project.changes.filter((change) => {
@@ -836,7 +879,7 @@ export default function App() {
     }
 
     setBusy(true);
-    const draft = await generateAiDraft(idea, project);
+    const draft = await generateAiDraft(idea, project, aiProvider);
     const existingChange = project.changes.find((change) => change.id === draft.id);
     const nextChange: SpecChange = {
       id: draft.id,
@@ -856,7 +899,7 @@ export default function App() {
     setSelectedId(nextChange.id);
     setActiveDoc("proposal.md");
     setNotice(
-      draft.source === "openai"
+      draft.source !== "local"
         ? draft.model
           ? `${t("aiPreviewGenerated")} (${draft.model})`
           : t("aiPreviewGenerated")
@@ -871,7 +914,7 @@ export default function App() {
     }
 
     setBusy(true);
-    const patch = await improveChangeWithAi(action, selectedChange, project, contextOptions);
+    const patch = await improveChangeWithAi(action, selectedChange, project, contextOptions, aiProvider);
     const preview: SpecChange = {
       ...selectedChange,
       summary: patch.summary,
@@ -886,7 +929,7 @@ export default function App() {
     resetDiffPreviewControls();
     setActiveDoc("proposal.md");
     setNotice(
-      patch.source === "openai"
+      patch.source !== "local"
         ? patch.model
           ? `${t("aiPreviewGenerated")} (${patch.model})`
           : t("aiPreviewGenerated")
@@ -1113,6 +1156,22 @@ export default function App() {
               <Bot size={18} />
               <span>{t("aiDraft")}</span>
             </div>
+            <label className="field-label">
+              <span>{t("aiProvider")}</span>
+              <select value={aiProvider} onChange={(event) => setAiProvider(event.target.value as AiProvider)}>
+                {aiProviders.map((provider) => (
+                  <option key={provider.id} value={provider.id}>
+                    {provider.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <p className="muted provider-model">
+              {t("modelLabel")}: {selectedAiProviderInfo?.model ?? selectedAiProvider.defaultModel}
+              <span className={selectedAiProviderInfo?.configured ? "provider-status configured" : "provider-status missing"}>
+                {selectedAiProviderInfo?.configured ? t("providerConfigured") : t("providerMissingKey")}
+              </span>
+            </p>
             <textarea value={idea} onChange={(event) => setIdea(event.target.value)} />
             <button className="primary-button" onClick={createDraftPreview} disabled={busy}>
               {busy ? <Loader2 className="spin" size={17} /> : <Sparkles size={17} />}

@@ -36,7 +36,8 @@ html[data-theme="light"] body {
 
 button,
 textarea,
-input {
+input,
+select {
   font: inherit;
 }
 
@@ -442,6 +443,54 @@ h1 {
   line-height: 1.45;
 }
 
+.field-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 8px;
+  color: #4c5752;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.field-label select {
+  width: 100%;
+  min-height: 38px;
+  padding: 0 10px;
+  border: 1px solid #d8d2c5;
+  border-radius: 8px;
+  outline: 0;
+  background: #fcfaf4;
+  color: #26302c;
+}
+
+.provider-model {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: -2px 0 10px;
+  font-size: 12px;
+}
+
+.provider-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  padding: 0 7px;
+  border-radius: 999px;
+  font-weight: 800;
+}
+
+.provider-status.configured {
+  color: #0d5f59;
+  background: #d9ede8;
+}
+
+.provider-status.missing {
+  color: #8d4f0f;
+  background: #fff0d6;
+}
+
 .recent-list {
   display: flex;
   flex-direction: column;
@@ -778,11 +827,27 @@ h1 {
 }
 
 [data-theme="dark"] .search input,
+[data-theme="dark"] .field-label select,
 [data-theme="dark"] .draft-block textarea,
 [data-theme="dark"] .markdown-editor {
   color: #f7fbf7;
 }
 
+[data-theme="dark"] .field-label {
+  color: #c9d1cb;
+}
+
+[data-theme="dark"] .provider-status.configured {
+  color: #8fd5cc;
+  background: #143b36;
+}
+
+[data-theme="dark"] .provider-status.missing {
+  color: #f0c17d;
+  background: #3d2c16;
+}
+
+[data-theme="dark"] .field-label select,
 [data-theme="dark"] .draft-block textarea,
 [data-theme="dark"] .recent-item,
 [data-theme="dark"] .diff-file {

@@ -10,7 +10,7 @@ export type SpecChange = {
   docs: Record<DocName, string>;
   previousDocs?: Partial<Record<DocName, string>>;
   isPreview?: boolean;
-  source?: "local" | "openai";
+  source?: "local" | AiProvider;
 };
 
 export type ProjectState = {
@@ -29,6 +29,7 @@ export type RecentProject = {
 
 export type Locale = "en" | "ru";
 export type Theme = "light" | "dark";
+export type AiProvider = "openai" | "openrouter" | "anthropic";
 export type ImproveAction = "improve-proposal" | "concrete-design" | "split-tasks" | "add-risks" | "summarize";
 export type ContextKey = "projectMd" | "readme" | "existingChanges" | "existingSpecs" | "currentChange";
 
@@ -46,6 +47,7 @@ export type TranslationKey =
   | "activeChange"
   | "aiApiFallback"
   | "aiDraft"
+  | "aiProvider"
   | "aiPreviewGenerated"
   | "archive"
   | "archiveAction"
@@ -81,6 +83,7 @@ export type TranslationKey =
   | "generateDraft"
   | "generateOrSelect"
   | "ideaRequired"
+  | "modelLabel"
   | "noChangesYet"
   | "noStoredHandle"
   | "projectLoaded"
@@ -108,6 +111,8 @@ export type TranslationKey =
   | "patchDiscarded"
   | "patchPreview"
   | "previewPrefix"
+  | "providerConfigured"
+  | "providerMissingKey"
   | "projectMd"
   | "recentProjectsLoadFailed"
   | "readme"
