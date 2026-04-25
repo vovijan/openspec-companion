@@ -2,6 +2,8 @@
 
 A local-first MVP for browsing and drafting OpenSpec changes in an existing project.
 
+OpenSpec Companion is a small developer tool for working with existing `openspec/` folders. It runs locally, reads and writes project files through the browser File System Access API, and keeps the OpenAI API key on the local Node server.
+
 ## What works now
 
 - Select a local project folder in Chrome or Edge.
@@ -20,29 +22,82 @@ A local-first MVP for browsing and drafting OpenSpec changes in an existing proj
 
 The app uses the browser File System Access API for local project reads/writes. The OpenAI API key stays server-side.
 
-## Configure AI
+## Requirements
+
+- Node.js 22 or newer.
+- npm 10 or newer.
+- Chrome or Edge for real local folder access.
+- An OpenAI API key for AI draft and improve actions.
+
+The app can run without `OPENAI_API_KEY`, but AI actions will fall back to local template patches.
+
+## Installation
+
+Clone the repository and install dependencies:
+
+```bash
+git clone https://github.com/vovijan/openspec-companion.git
+cd openspec-companion
+npm install
+```
+
+## Configuration
 
 Copy `.env.example` to `.env` and set:
 
 ```bash
 OPENAI_API_KEY=sk-...
 OPENAI_MODEL=gpt-5.4-mini
+PORT=5173
 ```
 
-## Run
+`OPENAI_MODEL` is optional. If it is omitted, the server uses `gpt-5.4-mini`.
+
+## Development
 
 ```bash
-npm install
 npm run dev
 ```
 
 Open `http://127.0.0.1:5173`.
+
+The dev command starts one local Node server that serves both:
+
+- the Vite React app;
+- API routes such as `/api/generate-change` and `/api/improve-change`.
 
 ## Build
 
 ```bash
 npm run build
 ```
+
+## Preview Production Build
+
+```bash
+npm run build
+npm run preview
+```
+
+## How To Use
+
+1. Open the app in Chrome or Edge.
+2. Click `Select Project` and choose a repository that has, or should have, an `openspec/` folder.
+3. Browse active changes in the left panel.
+4. Edit `proposal.md`, `design.md`, or `tasks.md` in the center editor.
+5. Use `Generate Draft` to create a new OpenSpec change from a short idea.
+6. Review the diff preview, then click `Save Draft`.
+7. Use `AI Context` to choose what project context is sent to the model.
+8. Use `AI Improve` actions to improve the current change, then apply or discard the patch.
+9. Use `Save` to write the current document back to disk.
+10. Use `Archive Change` to move a completed change into `openspec/changes/archive/<date>-<change-id>`.
+
+## Notes
+
+- Recent projects are stored in the browser with IndexedDB.
+- Folder access depends on browser permissions. If permission expires, select the project folder again.
+- The app does not upload project files except the context selected for AI requests.
+- `.env` is ignored by git. Keep API keys out of commits.
 
 ## Next slices
 
