@@ -739,6 +739,22 @@ h1 {
   border-left-color: #65b99f;
 }
 
+.handoff-prompt {
+  width: 100%;
+  height: 220px;
+  resize: vertical;
+  margin-bottom: 10px;
+  padding: 10px;
+  border: 1px solid #d8d2c5;
+  border-radius: 8px;
+  outline: 0;
+  background: #fcfaf4;
+  color: #26302c;
+  font-family: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 .diff-file {
   border: 1px solid #e0dacd;
   border-radius: 8px;
@@ -984,6 +1000,7 @@ h1 {
 [data-theme="dark"] .search input,
 [data-theme="dark"] .field-label select,
 [data-theme="dark"] .draft-block textarea,
+[data-theme="dark"] .handoff-prompt,
 [data-theme="dark"] .markdown-editor {
   color: #f7fbf7;
 }
@@ -1004,6 +1021,7 @@ h1 {
 
 [data-theme="dark"] .field-label select,
 [data-theme="dark"] .draft-block textarea,
+[data-theme="dark"] .handoff-prompt,
 [data-theme="dark"] .recent-item,
 [data-theme="dark"] .diff-file {
   border-color: #3a3f3b;

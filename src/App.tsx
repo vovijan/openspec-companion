@@ -14,12 +14,14 @@ import {
   Wand2,
   X,
 } from "lucide-react";
+import { AgentHandoffPanel } from "./components/AgentHandoffPanel";
 import { ChangeSidebar } from "./components/ChangeSidebar";
 import { EditorPanel } from "./components/EditorPanel";
 import { SpecHealthPanel } from "./components/SpecHealthPanel";
 import { Topbar } from "./components/Topbar";
 import { useDiffPreviewControls } from "./hooks/useDiffPreviewControls";
 import { usePersistentPreference } from "./hooks/usePersistentPreference";
+import { buildAgentHandoffPrompt } from "./lib/agentHandoff";
 import { getSpecHealth } from "./lib/specHealth";
 import type { AiProvider, AiReviewIssue, AiReviewResult, ContextKey, ContextOptions, DiffLine, DocName, HealthTone, ImproveAction, Locale, ProjectState, RecentProject, SpecChange, SpecHealth, Theme, TranslationKey } from "./types";
 
@@ -51,6 +53,11 @@ const translations: Record<Locale, Record<TranslationKey, string>> = {
     archiveUnavailable: "Select a real project before archiving changes.",
     applyPatch: "Apply Patch",
     applySelectedFiles: "Apply Selected Files",
+    agentHandoff: "Agent Handoff",
+    agentHandoffCopied: "Implementation handoff prompt copied.",
+    agentHandoffCopy: "Copy Handoff",
+    agentHandoffEmpty: "Select a change to prepare an implementation handoff.",
+    agentHandoffPrompt: "Implementation handoff prompt",
     contextCurrentChange: "Current change",
     contextExistingChanges: "Existing changes",
     contextExistingSpecs: "Existing specs",
@@ -136,6 +143,11 @@ const translations: Record<Locale, Record<TranslationKey, string>> = {
     archiveUnavailable: "Выбери реальный проект, чтобы архивировать изменения.",
     applyPatch: "Применить патч",
     applySelectedFiles: "Применить выбранные файлы",
+    agentHandoff: "Передача агенту",
+    agentHandoffCopied: "Prompt для реализации скопирован.",
+    agentHandoffCopy: "Скопировать handoff",
+    agentHandoffEmpty: "Выбери change, чтобы подготовить prompt для реализации.",
+    agentHandoffPrompt: "Prompt для реализации",
     contextCurrentChange: "Текущее изменение",
     contextExistingChanges: "Существующие changes",
     contextExistingSpecs: "Существующие specs",
@@ -881,6 +893,10 @@ export default function App() {
   const diffChange = patchPreview ?? (displayedChange?.isPreview ? displayedChange : undefined);
   const selectedAiProvider = aiProviders.find((provider) => provider.id === aiProvider) ?? aiProviders[0];
   const selectedAiProviderInfo = aiProviderInfo.find((provider) => provider.id === aiProvider);
+  const handoffPrompt = useMemo(
+    () => buildAgentHandoffPrompt({ change: displayedChange, health: specHealth, locale, projectName: project.name, review: aiReview }),
+    [aiReview, displayedChange, locale, project.name, specHealth],
+  );
 
   const filteredChanges = useMemo(() => {
     return project.changes.filter((change) => {
@@ -1186,6 +1202,15 @@ export default function App() {
     setBusy(false);
   }
 
+  async function copyHandoffPrompt() {
+    if (!handoffPrompt) {
+      return;
+    }
+
+    await navigator.clipboard.writeText(handoffPrompt);
+    setNotice(t("agentHandoffCopied"));
+  }
+
   return (
     <main className="app-shell" data-theme={theme}>
       <Topbar
@@ -1325,6 +1350,8 @@ export default function App() {
             onRunReview={reviewSelectedChange}
             t={t}
           />
+
+          <AgentHandoffPanel prompt={handoffPrompt} onCopy={copyHandoffPrompt} t={t} />
 
           <section className="inspector-block improve-block">
             <div className="block-title">
