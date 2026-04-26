@@ -21,9 +21,9 @@ import { SpecHealthPanel } from "./components/SpecHealthPanel";
 import { Topbar } from "./components/Topbar";
 import { useDiffPreviewControls } from "./hooks/useDiffPreviewControls";
 import { usePersistentPreference } from "./hooks/usePersistentPreference";
-import { buildAgentHandoffPrompt } from "./lib/agentHandoff";
+import { buildAgentHandoffPrompt, createHandoffHistoryItem, type HandoffHistoryItem } from "./lib/agentHandoff";
 import { getSpecHealth } from "./lib/specHealth";
-import type { AiProvider, AiReviewIssue, AiReviewResult, ContextKey, ContextOptions, DiffLine, DocName, HealthTone, ImproveAction, Locale, ProjectState, RecentProject, SpecChange, SpecHealth, Theme, TranslationKey } from "./types";
+import type { AiProvider, AiReviewIssue, AiReviewResult, ContextKey, ContextOptions, DiffLine, DocName, HandoffTemplate, HealthTone, ImproveAction, Locale, ProjectState, RecentProject, SpecChange, SpecHealth, Theme, TranslationKey } from "./types";
 
 type AiProviderInfo = {
   id: AiProvider;
@@ -55,9 +55,17 @@ const translations: Record<Locale, Record<TranslationKey, string>> = {
     applySelectedFiles: "Apply Selected Files",
     agentHandoff: "Agent Handoff",
     agentHandoffCopied: "Implementation handoff prompt copied.",
+    agentHandoffCopyClaude: "Copy as Claude Code prompt",
+    agentHandoffCopyCodex: "Copy as Codex prompt",
     agentHandoffCopy: "Copy Handoff",
     agentHandoffEmpty: "Select a change to prepare an implementation handoff.",
+    agentHandoffHistory: "Handoff History",
+    agentHandoffHistoryEmpty: "Copied handoffs will appear here.",
+    agentHandoffIncludeReview: "Include AI Review",
     agentHandoffPrompt: "Implementation handoff prompt",
+    agentHandoffTemplate: "Template",
+    agentHandoffTemplateClaude: "Claude Code",
+    agentHandoffTemplateCodex: "Codex",
     contextCurrentChange: "Current change",
     contextExistingChanges: "Existing changes",
     contextExistingSpecs: "Existing specs",
@@ -145,9 +153,17 @@ const translations: Record<Locale, Record<TranslationKey, string>> = {
     applySelectedFiles: "Применить выбранные файлы",
     agentHandoff: "Передача агенту",
     agentHandoffCopied: "Prompt для реализации скопирован.",
+    agentHandoffCopyClaude: "Скопировать для Claude Code",
+    agentHandoffCopyCodex: "Скопировать для Codex",
     agentHandoffCopy: "Скопировать handoff",
     agentHandoffEmpty: "Выбери change, чтобы подготовить prompt для реализации.",
+    agentHandoffHistory: "История handoff",
+    agentHandoffHistoryEmpty: "Скопированные handoff появятся здесь.",
+    agentHandoffIncludeReview: "Включить AI Review",
     agentHandoffPrompt: "Prompt для реализации",
+    agentHandoffTemplate: "Шаблон",
+    agentHandoffTemplateClaude: "Claude Code",
+    agentHandoffTemplateCodex: "Codex",
     contextCurrentChange: "Текущее изменение",
     contextExistingChanges: "Существующие changes",
     contextExistingSpecs: "Существующие specs",
@@ -248,6 +264,30 @@ function getInitialTheme(): Theme {
 function getInitialAiProvider(): AiProvider {
   const saved = localStorage.getItem("openspec-companion-ai-provider");
   return aiProviders.some((provider) => provider.id === saved) ? saved as AiProvider : "openai";
+}
+
+function getInitialHandoffTemplate(): HandoffTemplate {
+  const saved = localStorage.getItem("openspec-companion-handoff-template");
+  return saved === "claude" || saved === "codex" ? saved : "codex";
+}
+
+function getInitialIncludeReview() {
+  return localStorage.getItem("openspec-companion-handoff-include-review") !== "false";
+}
+
+function getInitialHandoffHistory(): HandoffHistoryItem[] {
+  try {
+    const parsed = JSON.parse(localStorage.getItem("openspec-companion-handoff-history") ?? "[]");
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return parsed
+      .filter((item) => item?.id && item?.changeId && item?.prompt && (item?.template === "codex" || item?.template === "claude"))
+      .slice(0, 8);
+  } catch {
+    return [];
+  }
 }
 
 const recentDbName = "openspec-companion";
@@ -839,6 +879,8 @@ export default function App() {
   const [locale, setLocaleState] = usePersistentPreference<Locale>("openspec-companion-locale", getInitialLocale);
   const [theme, setTheme] = usePersistentPreference<Theme>("openspec-companion-theme", getInitialTheme);
   const [aiProvider, setAiProvider] = usePersistentPreference<AiProvider>("openspec-companion-ai-provider", getInitialAiProvider);
+  const [handoffTemplate, setHandoffTemplateState] = usePersistentPreference<HandoffTemplate>("openspec-companion-handoff-template", getInitialHandoffTemplate);
+  const [includeReviewInHandoff, setIncludeReviewInHandoffState] = useState(getInitialIncludeReview);
   const [project, setProject] = useState<ProjectState>({ name: "Demo Repository", changes: demoChanges });
   const [selectedId, setSelectedId] = useState(demoChanges[0].id);
   const [activeDoc, setActiveDoc] = useState<DocName>("proposal.md");
@@ -847,6 +889,7 @@ export default function App() {
   const [notice, setNotice] = useState(() => translate(getInitialLocale(), "demoMode"));
   const [query, setQuery] = useState("");
   const [recentProjects, setRecentProjects] = useState<RecentProject[]>([]);
+  const [handoffHistory, setHandoffHistory] = useState<HandoffHistoryItem[]>(getInitialHandoffHistory);
   const [aiProviderInfo, setAiProviderInfo] = useState<AiProviderInfo[]>([]);
   const [aiReview, setAiReview] = useState<AiReviewResult | undefined>();
   const [contextOptions, setContextOptions] = useState<ContextOptions>(defaultContextOptions);
@@ -857,6 +900,16 @@ export default function App() {
   function setLocale(nextLocale: Locale) {
     setLocaleState(nextLocale);
     setNotice(translate(nextLocale, "demoMode"));
+  }
+
+  function setIncludeReviewInHandoff(nextValue: boolean) {
+    setIncludeReviewInHandoffState(nextValue);
+    localStorage.setItem("openspec-companion-handoff-include-review", String(nextValue));
+  }
+
+  function saveHandoffHistory(nextHistory: HandoffHistoryItem[]) {
+    setHandoffHistory(nextHistory);
+    localStorage.setItem("openspec-companion-handoff-history", JSON.stringify(nextHistory));
   }
 
   useEffect(() => {
@@ -894,8 +947,16 @@ export default function App() {
   const selectedAiProvider = aiProviders.find((provider) => provider.id === aiProvider) ?? aiProviders[0];
   const selectedAiProviderInfo = aiProviderInfo.find((provider) => provider.id === aiProvider);
   const handoffPrompt = useMemo(
-    () => buildAgentHandoffPrompt({ change: displayedChange, health: specHealth, locale, projectName: project.name, review: aiReview }),
-    [aiReview, displayedChange, locale, project.name, specHealth],
+    () => buildAgentHandoffPrompt({
+      change: displayedChange,
+      health: specHealth,
+      includeReview: includeReviewInHandoff,
+      locale,
+      projectName: project.name,
+      review: aiReview,
+      template: handoffTemplate,
+    }),
+    [aiReview, displayedChange, handoffTemplate, includeReviewInHandoff, locale, project.name, specHealth],
   );
 
   const filteredChanges = useMemo(() => {
@@ -1202,12 +1263,34 @@ export default function App() {
     setBusy(false);
   }
 
-  async function copyHandoffPrompt() {
-    if (!handoffPrompt) {
+  async function copyHandoffPrompt(template: HandoffTemplate) {
+    if (!displayedChange) {
       return;
     }
 
-    await navigator.clipboard.writeText(handoffPrompt);
+    const prompt = buildAgentHandoffPrompt({
+      change: displayedChange,
+      health: specHealth,
+      includeReview: includeReviewInHandoff,
+      locale,
+      projectName: project.name,
+      review: aiReview,
+      template,
+    });
+    if (!prompt) {
+      return;
+    }
+
+    await navigator.clipboard.writeText(prompt);
+    saveHandoffHistory([
+      createHandoffHistoryItem(displayedChange.id, prompt, template),
+      ...handoffHistory,
+    ].slice(0, 8));
+    setNotice(t("agentHandoffCopied"));
+  }
+
+  async function copyHandoffHistoryItem(item: HandoffHistoryItem) {
+    await navigator.clipboard.writeText(item.prompt);
     setNotice(t("agentHandoffCopied"));
   }
 
@@ -1351,7 +1434,17 @@ export default function App() {
             t={t}
           />
 
-          <AgentHandoffPanel prompt={handoffPrompt} onCopy={copyHandoffPrompt} t={t} />
+          <AgentHandoffPanel
+            history={handoffHistory}
+            includeReview={includeReviewInHandoff}
+            prompt={handoffPrompt}
+            selectedTemplate={handoffTemplate}
+            onCopy={copyHandoffPrompt}
+            onCopyHistory={copyHandoffHistoryItem}
+            onIncludeReviewChange={setIncludeReviewInHandoff}
+            onTemplateChange={setHandoffTemplateState}
+            t={t}
+          />
 
           <section className="inspector-block improve-block">
             <div className="block-title">

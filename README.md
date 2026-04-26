@@ -16,6 +16,7 @@ OpenSpec Companion is a small developer tool for working with existing `openspec
 - Review change readiness with Spec Health.
 - Run an AI review before implementation.
 - Prepare an implementation handoff prompt for coding agents.
+- Choose Codex or Claude Code handoff templates, optionally include AI Review, and reuse recent handoffs.
 - Preview generated draft files before writing them.
 - Apply or discard AI improvement patches before saving.
 - Review full markdown diffs for draft and AI patch previews.
@@ -106,7 +107,7 @@ npm run preview
 8. Use `AI Context` to choose what project context is sent to the model.
 9. Check `Spec Health` to see readiness, missing sections, and task quality.
 10. Use `Review Change` to get an AI implementation-readiness review.
-11. Use `Agent Handoff` to copy a ready implementation prompt for Codex, Claude Code, Cursor, or another coding agent.
+11. Use `Agent Handoff` to choose a Codex or Claude Code template, include or exclude AI Review, and copy a ready implementation prompt.
 12. Use `AI Improve` actions to improve the current change, then apply or discard the patch.
 13. Use `Save` to write the current document back to disk.
 14. Use `Archive Change` to move a completed change into `openspec/changes/archive/<date>-<change-id>`.

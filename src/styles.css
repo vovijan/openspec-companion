@@ -755,6 +755,66 @@ h1 {
   line-height: 1.5;
 }
 
+.handoff-review-toggle {
+  margin-bottom: 8px;
+}
+
+.handoff-actions,
+.handoff-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.handoff-history {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #ebe5d8;
+}
+
+.handoff-history > strong {
+  display: block;
+  margin-bottom: 8px;
+  color: #26302c;
+  font-size: 13px;
+}
+
+.handoff-history-item {
+  display: block;
+  width: 100%;
+  min-height: 46px;
+  padding: 8px 10px;
+  border: 1px solid #e0dacd;
+  border-radius: 8px;
+  background: #fcfaf4;
+  color: #26302c;
+  text-align: left;
+}
+
+.handoff-history-item:hover {
+  border-color: #b9d7d1;
+  background: #f3fbf8;
+}
+
+.handoff-history-item span,
+.handoff-history-item small {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.handoff-history-item span {
+  margin-bottom: 3px;
+  font-weight: 800;
+}
+
+.handoff-history-item small {
+  color: #66706b;
+  font-size: 12px;
+}
+
 .diff-file {
   border: 1px solid #e0dacd;
   border-radius: 8px;
@@ -981,7 +1041,9 @@ h1 {
 
 [data-theme="dark"] .health-score strong,
 [data-theme="dark"] .health-check,
-[data-theme="dark"] .ai-review {
+[data-theme="dark"] .ai-review,
+[data-theme="dark"] .handoff-history > strong,
+[data-theme="dark"] .handoff-history-item {
   color: #eef3ee;
 }
 
@@ -993,7 +1055,8 @@ h1 {
 }
 
 [data-theme="dark"] .health-check,
-[data-theme="dark"] .ai-review {
+[data-theme="dark"] .ai-review,
+[data-theme="dark"] .handoff-history {
   border-color: #3a3f3b;
 }
 
@@ -1022,11 +1085,16 @@ h1 {
 [data-theme="dark"] .field-label select,
 [data-theme="dark"] .draft-block textarea,
 [data-theme="dark"] .handoff-prompt,
+[data-theme="dark"] .handoff-history-item,
 [data-theme="dark"] .recent-item,
 [data-theme="dark"] .diff-file {
   border-color: #3a3f3b;
   background: #1b1f1d;
   color: #eef3ee;
+}
+
+[data-theme="dark"] .handoff-history-item small {
+  color: #a9b4ad;
 }
 
 [data-theme="dark"] .diff-table {

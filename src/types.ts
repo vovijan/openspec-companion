@@ -61,6 +61,7 @@ export type RecentProject = {
 export type Locale = "en" | "ru";
 export type Theme = "light" | "dark";
 export type AiProvider = "openai" | "openrouter" | "anthropic";
+export type HandoffTemplate = "codex" | "claude";
 export type ImproveAction = "improve-proposal" | "concrete-design" | "split-tasks" | "add-risks" | "summarize";
 export type ContextKey = "projectMd" | "readme" | "existingChanges" | "existingSpecs" | "currentChange";
 
@@ -96,9 +97,17 @@ export type TranslationKey =
   | "applySelectedFiles"
   | "agentHandoff"
   | "agentHandoffCopied"
+  | "agentHandoffCopyClaude"
+  | "agentHandoffCopyCodex"
   | "agentHandoffCopy"
   | "agentHandoffEmpty"
+  | "agentHandoffHistory"
+  | "agentHandoffHistoryEmpty"
+  | "agentHandoffIncludeReview"
   | "agentHandoffPrompt"
+  | "agentHandoffTemplate"
+  | "agentHandoffTemplateClaude"
+  | "agentHandoffTemplateCodex"
   | "contextCurrentChange"
   | "contextExistingChanges"
   | "contextExistingSpecs"
