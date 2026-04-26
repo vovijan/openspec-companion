@@ -1,9 +1,11 @@
 import { FolderOpen, GitBranch, Loader2, Moon, RefreshCw, Sun } from "lucide-react";
-import type { Locale, Theme, TranslationKey } from "../types";
+import type { Locale, OpenSpecStatus, Theme, TranslationKey } from "../types";
+import { OpenSpecStatusIndicator } from "./OpenSpecStatusIndicator";
 
 type TopbarProps = {
   busy: boolean;
   locale: Locale;
+  openSpecStatus?: OpenSpecStatus;
   projectName: string;
   theme: Theme;
   onLocaleChange: (locale: Locale) => void;
@@ -16,6 +18,7 @@ type TopbarProps = {
 export function Topbar({
   busy,
   locale,
+  openSpecStatus,
   projectName,
   theme,
   onLocaleChange,
@@ -32,7 +35,10 @@ export function Topbar({
         </div>
         <div>
           <h1>OpenSpec Companion</h1>
-          <p>{projectName}</p>
+          <div className="project-meta">
+            <p>{projectName}</p>
+            {openSpecStatus ? <OpenSpecStatusIndicator status={openSpecStatus} t={t} /> : null}
+          </div>
         </div>
       </div>
       <div className="topbar-actions">

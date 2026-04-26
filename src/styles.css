@@ -111,8 +111,69 @@ h1 {
 }
 
 .brand p {
-  margin-top: 4px;
   font-size: 13px;
+}
+
+.project-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.openspec-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
+  padding: 2px 8px;
+  border: 1px solid #d3cec2;
+  border-radius: 999px;
+  color: #53605a;
+  background: #fffdf8;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.openspec-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: currentColor;
+  box-shadow: 0 0 0 3px rgba(83, 96, 90, 0.12);
+}
+
+.openspec-status-ready {
+  border-color: #a9d5c7;
+  color: #0d6b59;
+  background: #e8f5ef;
+}
+
+.openspec-status-partial {
+  border-color: #e3c470;
+  color: #806018;
+  background: #fff6d7;
+}
+
+.openspec-status-created {
+  border-color: #b8cfe5;
+  color: #2f5b86;
+  background: #e9f2fb;
+}
+
+.openspec-status-invalid {
+  border-color: #e5b8b8;
+  color: #9c2c2c;
+  background: #fff0f0;
+}
+
+.openspec-status-demo {
+  border-color: #d3cec2;
+  color: #66706b;
+  background: #f5f1e8;
 }
 
 .topbar-actions {
@@ -1037,6 +1098,40 @@ h1 {
 [data-theme="dark"] .eyebrow,
 [data-theme="dark"] .search {
   color: #93a099;
+}
+
+[data-theme="dark"] .openspec-status {
+  border-color: #3a3f3b;
+  background: #222623;
+}
+
+[data-theme="dark"] .openspec-status-ready {
+  border-color: #2f6b65;
+  color: #61d0c4;
+  background: #1c403d;
+}
+
+[data-theme="dark"] .openspec-status-partial {
+  border-color: #7d6829;
+  color: #f3cf65;
+  background: #332b16;
+}
+
+[data-theme="dark"] .openspec-status-created {
+  border-color: #385f82;
+  color: #9ac6ef;
+  background: #1c3043;
+}
+
+[data-theme="dark"] .openspec-status-invalid {
+  border-color: #7a3535;
+  color: #f19a9a;
+  background: #3c2020;
+}
+
+[data-theme="dark"] .openspec-status-demo {
+  color: #a9b4ad;
+  background: #222623;
 }
 
 [data-theme="dark"] .health-score strong,

@@ -1,5 +1,5 @@
 import { docNames } from "../constants";
-import type { Locale, ProjectState, SpecChange } from "../types";
+import type { Locale, OpenSpecStatus, ProjectState, SpecChange } from "../types";
 import { validateChange } from "./validation";
 
 export async function readTextFile(directory: FileSystemDirectoryHandle, name: string) {
@@ -90,9 +90,74 @@ export async function ensureProjectPermission(handle: FileSystemDirectoryHandle)
   return request === "granted";
 }
 
+async function getExistingDirectory(parent: FileSystemDirectoryHandle, name: string) {
+  try {
+    return await parent.getDirectoryHandle(name);
+  } catch {
+    return undefined;
+  }
+}
+
+async function hasFile(parent: FileSystemDirectoryHandle | undefined, name: string) {
+  if (!parent) {
+    return false;
+  }
+
+  try {
+    await parent.getFileHandle(name);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function inspectOpenSpecStatus(handle: FileSystemDirectoryHandle): Promise<{
+  changesDir?: FileSystemDirectoryHandle;
+  status: Omit<OpenSpecStatus, "activeChanges">;
+}> {
+  try {
+    const openspec = await getExistingDirectory(handle, "openspec");
+    const projectMd = await hasFile(openspec, "project.md");
+    const specs = openspec ? await getExistingDirectory(openspec, "specs") : undefined;
+    const changes = openspec ? await getExistingDirectory(openspec, "changes") : undefined;
+
+    if (!openspec) {
+      return {
+        status: {
+          state: "created",
+          projectMd: false,
+          specsDir: false,
+          changesDir: false,
+        },
+      };
+    }
+
+    const state = projectMd && specs && changes ? "ready" : "partial";
+    return {
+      changesDir: changes,
+      status: {
+        state,
+        projectMd,
+        specsDir: Boolean(specs),
+        changesDir: Boolean(changes),
+      },
+    };
+  } catch {
+    return {
+      status: {
+        state: "invalid",
+        projectMd: false,
+        specsDir: false,
+        changesDir: false,
+      },
+    };
+  }
+}
+
 export async function loadOpenSpecProject(handle: FileSystemDirectoryHandle, locale: Locale): Promise<ProjectState> {
+  const inspected = await inspectOpenSpecStatus(handle);
   const openspec = await handle.getDirectoryHandle("openspec", { create: true });
-  const changesDir = await openspec.getDirectoryHandle("changes", { create: true });
+  const changesDir = inspected.changesDir ?? await openspec.getDirectoryHandle("changes", { create: true });
   const changes: SpecChange[] = [];
 
   for await (const entry of changesDir.values()) {
@@ -127,5 +192,10 @@ export async function loadOpenSpecProject(handle: FileSystemDirectoryHandle, loc
     name: handle.name,
     handle,
     changes: changes.length ? changes : [],
+    openSpecStatus: {
+      ...inspected.status,
+      changesDir: inspected.status.state === "invalid" ? inspected.status.changesDir : true,
+      activeChanges: changes.length,
+    },
   };
 }

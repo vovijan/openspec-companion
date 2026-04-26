@@ -48,6 +48,17 @@ export type ProjectState = {
   name: string;
   handle?: FileSystemDirectoryHandle;
   changes: SpecChange[];
+  openSpecStatus?: OpenSpecStatus;
+};
+
+export type OpenSpecStatusState = "demo" | "ready" | "partial" | "created" | "invalid";
+
+export type OpenSpecStatus = {
+  state: OpenSpecStatusState;
+  projectMd: boolean;
+  specsDir: boolean;
+  changesDir: boolean;
+  activeChanges: number;
 };
 
 export type RecentProject = {
@@ -158,6 +169,17 @@ export type TranslationKey =
   | "proposalMissingWhy"
   | "openRecent"
   | "openedRecent"
+  | "openSpecStatusActiveChanges"
+  | "openSpecStatusChanges"
+  | "openSpecStatusCreated"
+  | "openSpecStatusDemo"
+  | "openSpecStatusFound"
+  | "openSpecStatusInvalid"
+  | "openSpecStatusMissing"
+  | "openSpecStatusPartial"
+  | "openSpecStatusProjectMd"
+  | "openSpecStatusReady"
+  | "openSpecStatusSpecs"
   | "patchApplied"
   | "patchDiscarded"
   | "patchPreview"

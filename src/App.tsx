@@ -47,7 +47,17 @@ export default function App() {
   const [aiProvider, setAiProvider] = usePersistentPreference<AiProvider>("openspec-companion-ai-provider", getInitialAiProvider);
   const [handoffTemplate, setHandoffTemplateState] = usePersistentPreference<HandoffTemplate>("openspec-companion-handoff-template", getInitialHandoffTemplate);
   const [includeReviewInHandoff, setIncludeReviewInHandoffState] = useState(getInitialIncludeReview);
-  const [project, setProject] = useState<ProjectState>({ name: "Demo Repository", changes: demoChanges });
+  const [project, setProject] = useState<ProjectState>({
+    name: "Demo Repository",
+    changes: demoChanges,
+    openSpecStatus: {
+      state: "demo",
+      projectMd: false,
+      specsDir: false,
+      changesDir: false,
+      activeChanges: demoChanges.length,
+    },
+  });
   const [selectedId, setSelectedId] = useState(demoChanges[0].id);
   const [activeDoc, setActiveDoc] = useState<DocName>("proposal.md");
   const [idea, setIdea] = useState("Add an OpenSpec change browser with AI-assisted draft generation");
@@ -465,6 +475,7 @@ export default function App() {
       <Topbar
         busy={busy}
         locale={locale}
+        openSpecStatus={project.openSpecStatus}
         projectName={project.name}
         theme={theme}
         onLocaleChange={setLocale}
